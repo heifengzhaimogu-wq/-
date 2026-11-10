@@ -27,6 +27,33 @@
   }
   $('login-form').onsubmit=async e=>{e.preventDefault();try{await auth('login',$('password').value)}catch(err){$('status').textContent=err.message}};
   $('signup').onclick=async()=>{const password=$('password').value;if(password.length<8){$('status').textContent='请先填写至少 8 位密码';return}try{await auth('signup',password)}catch(err){$('status').textContent=err.message}};
+  $('recover').onclick=async()=>{
+    const email=$('email').value.trim();
+    if(!email){$('status').textContent='请先填写管理员邮箱';return}
+    try{
+      await call(base+'/auth/v1/recover',{method:'POST',body:JSON.stringify({email})});
+      $('reset-panel').hidden=false;
+      $('status').textContent='重置邮件已发送。复制邮件里按钮的链接地址，粘贴到下方并设置新密码。';
+    }catch(err){$('status').textContent=err.message}
+  };
+  $('reset-form').onsubmit=async e=>{
+    e.preventDefault();
+    const password=$('reset-password').value;
+    if(password.length<8){$('status').textContent='新密码至少 8 位';return}
+    try{
+      const link=new URL($('reset-link').value.trim());
+      if(link.origin!==base || link.pathname!=='/auth/v1/verify' || link.searchParams.get('type')!=='recovery')throw Error('请粘贴这次收到的 Supabase 重置密码链接');
+      const tokenHash=link.searchParams.get('token_hash')||link.searchParams.get('token');
+      if(!tokenHash)throw Error('重置链接缺少验证码');
+      const session=await call(base+'/auth/v1/verify',{method:'POST',body:JSON.stringify({type:'recovery',token_hash:tokenHash})});
+      token=session.access_token||'';
+      if(!token)throw Error('重置链接已失效，请重新发送邮件');
+      await call(base+'/auth/v1/user',{method:'PUT',body:JSON.stringify({password})});
+      sessionStorage.setItem('gz-admin-token',token);
+      $('status').textContent='密码已更新，正在进入后台…';
+      await refresh();
+    }catch(err){token='';$('status').textContent=err.message}
+  };
   $('logout').onclick=()=>{token='';sessionStorage.removeItem('gz-admin-token');$('admin-panels').hidden=true;$('login-panel').hidden=false;$('status').textContent='已退出登录'};
   $('refresh').onclick=refresh;
   async function refresh(){
