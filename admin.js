@@ -83,12 +83,23 @@
   function normalize(rows){
     return rows.map(row=>{const g={};for(const [k,v] of Object.entries(row)){if(!k)continue;g[k]=typeof v==='string'?v.trim():v}for(const k of ['requestOnly','priority','freshGift'])if(k in g)g[k]=g[k]===true||/^(true|1|是)$/i.test(String(g[k]));return g});
   }
+  async function archiveImport(file){
+    if(file.size>10*1024*1024)throw Error('源文件超过 10 MB，数据已发布但文件未归档');
+    const filename=Date.now()+'-'+file.name.replace(/[^a-zA-Z0-9._\u4e00-\u9fff-]/g,'_').slice(0,100);
+    const response=await fetch(base+'/storage/v1/object/gratitude-imports/'+encodeURIComponent(filename),{
+      method:'POST',
+      headers:{apikey:key,authorization:'Bearer '+token,'content-type':file.type||'application/octet-stream','x-upsert':'false'},
+      body:file
+    });
+    if(!response.ok)throw Error('数据已发布，但源文件归档失败：'+response.status);
+  }
   $('upload-form').onsubmit=async e=>{
     e.preventDefault();const file=$('catalog-file').files[0];if(!file)return;
     $('catalog-status').textContent='正在检查文件…';
     try{let rows;if(/\.csv$/i.test(file.name))rows=parseCsv(await file.text());
       else{if(!window.XLSX)throw Error('Excel 解析组件未载入，请重试或保存为 CSV 上传');const book=XLSX.read(await file.arrayBuffer(),{type:'array'});rows=XLSX.utils.sheet_to_json(book.Sheets[book.SheetNames[0]],{defval:''})}
-      await publish(normalize(rows));
+      await publish(normalize(rows));await archiveImport(file);
+      $('catalog-status').textContent='礼物库已发布，源文件已保存到私密存储；伙伴刷新后可见。';
     }catch(err){$('catalog-status').textContent=err.message}
   };
   $('download').onclick=()=>{
