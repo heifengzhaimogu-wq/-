@@ -75,7 +75,7 @@
     ctx.textAlign='right';ctx.font='36px "Songti SC",serif';ctx.fillText($('card-from').value.trim()||'丽兹行广州团队',930,1240);
     ctx.font='26px "Songti SC",serif';ctx.fillText('2026年11月',930,1300);
   }
-  $('card-form').onsubmit=e=>{e.preventDefault();drawCard();canvas.toBlob(blob=>{if(!blob){$('card-status').textContent='图片生成失败，请重试。';return}const old=$('card-download').href;if(old?.startsWith('blob:'))URL.revokeObjectURL(old);$('card-download').href=URL.createObjectURL(blob);$('card-download').hidden=false;$('card-status').textContent='JPG 已生成。'},'image/jpeg',.94)};
-  ['theme','card-to','card-body','card-from'].forEach(id=>$(id).addEventListener('input',drawCard));
+  $('card-form').onsubmit=e=>{e.preventDefault();drawCard();canvas.toBlob(blob=>{if(!blob){$('card-status').textContent='图片生成失败，请重试。';return}const old=$('card-download').href;if(old?.startsWith('blob:'))URL.revokeObjectURL(old);const url=URL.createObjectURL(blob);$('card-download').href=url;$('card-download').hidden=false;$('card-image').src=url;$('card-image').hidden=false;canvas.hidden=true;$('card-status').textContent='JPG 已生成，可下载或长按图片保存。'},'image/jpeg',.94)};
+  ['theme','card-to','card-body','card-from'].forEach(id=>$(id).addEventListener('input',()=>{drawCard();canvas.hidden=false;$('card-image').hidden=true;$('card-download').hidden=true}));
   drawCard();loadGifts();loadFeedback();
 })();
