@@ -5,7 +5,7 @@
   const key='sb_publishable_aNYLhQd8OTIHJtV_mMDyvg_JB4db5ed';
   const $=id=>document.getElementById(id);
   const make=(tag,text)=>{const el=document.createElement(tag);el.textContent=text??'';return el};
-  let token=sessionStorage.getItem('gz-admin-token')||'',gifts=[];
+  let token=sessionStorage.getItem('gz-admin-token')||'',gifts=[],requestRows=[];
   async function call(url,options={}){
     const headers={'content-type':'application/json',apikey:key,...(options.headers||{})};
     if(token)headers.authorization='Bearer '+token;
@@ -67,11 +67,36 @@
     }catch(err){$('status').textContent=err.message;if(/登录|授权|身份/.test(err.message)){$('admin-panels').hidden=true;$('login-panel').hidden=false}}
   }
   function renderRequests(items){
+    requestRows=items;
     const root=$('requests');root.replaceChildren();
-    if(!items.length){root.textContent='暂无需求登记';return}
-    const mailLabel={sent:'已发送',failed:'发送失败',not_configured:'未配置发件服务'};
-    for(const item of items){const row=make('div','');row.className='row';row.append(make('strong',(gifts.find(g=>g.id===item.gift_id)?.name||item.gift_id)+' · '+item.quantity+'份'),make('small',item.store+' · '+item.name+' · '+new Date(item.created_at).toLocaleString('zh-CN')+' · 邮件：'+(mailLabel[item.email_status]||item.email_status||'待发送')));root.append(row)}
+    $('download-requests').disabled=!items.length;
+    $('request-count').textContent=items.length?'共 '+items.length+' 条登记，合计 '+items.reduce((sum,item)=>sum+Number(item.quantity||0),0)+' 份。':'暂无需求登记';
+    if(!items.length)return;
+    const table=make('table');const head=make('thead'),headRow=make('tr');
+    for(const label of ['提交时间','所属店面','伙伴姓名','选择礼物','需要份数'])headRow.append(make('th',label));
+    head.append(headRow);table.append(head);
+    const body=make('tbody');
+    for(const item of items){const row=make('tr');for(const value of [new Date(item.created_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}),item.store,item.name,gifts.find(g=>g.id===item.gift_id)?.name||item.gift_id,String(item.quantity)])row.append(make('td',value));body.append(row)}
+    table.append(body);root.append(table)
   }
+  $('download-requests').onclick=()=>{
+    if(!requestRows.length)return;
+    if(!window.XLSX){$('request-count').textContent='Excel 组件尚未载入，请刷新页面重试';return}
+    const detail=[['提交时间','所属店面','伙伴姓名','选择礼物','需要份数','礼物编号']];
+    const summary=new Map();
+    for(const item of requestRows){
+      const gift=gifts.find(g=>g.id===item.gift_id)?.name||item.gift_id;
+      detail.push([new Date(item.created_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}),item.store,item.name,gift,Number(item.quantity),item.gift_id]);
+      const group=summary.get(item.gift_id)||{gift,count:0,quantity:0};group.count++;group.quantity+=Number(item.quantity);summary.set(item.gift_id,group)
+    }
+    const totals=[['礼物名称','登记笔数','需求总份数'],...[...summary.values()].map(x=>[x.gift,x.count,x.quantity])];
+    const book=XLSX.utils.book_new(),sheet=XLSX.utils.aoa_to_sheet(detail),totalSheet=XLSX.utils.aoa_to_sheet(totals);
+    sheet['!cols']=[{wch:22},{wch:22},{wch:18},{wch:42},{wch:14},{wch:24}];
+    totalSheet['!cols']=[{wch:42},{wch:14},{wch:18}];
+    sheet['!autofilter']={ref:sheet['!ref']};totalSheet['!autofilter']={ref:totalSheet['!ref']};
+    XLSX.utils.book_append_sheet(book,sheet,'登记明细');XLSX.utils.book_append_sheet(book,totalSheet,'礼物汇总');
+    XLSX.writeFile(book,'广州感恩月面见礼物需求-'+new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Shanghai'}).replaceAll('-','')+'.xlsx');
+  };
   function renderFeedback(items){
     const root=$('feedback');root.replaceChildren();
     if(!items.length){root.textContent='暂无反馈';return}

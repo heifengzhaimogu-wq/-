@@ -36,7 +36,7 @@
     const field=name=>form.elements.namedItem(name).value;
     const payload={giftId:selectedGift?.id,store:field('store').trim(),name:field('name').trim(),quantity:Number(field('quantity'))};
     button.disabled=true;$('request-status').textContent='正在提交…';
-    try{const result=await api('/requests',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});$('request-status').textContent=result.emailStatus==='sent'?'提交成功，邮件已提醒项目组。':'提交成功，项目组可在后台看到需求；邮件提醒暂未发出。';form.reset()}
+    try{await api('/requests',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});$('request-status').textContent='提交成功，BP 可在后台查看并下载需求表。';form.reset()}
     catch(err){$('request-status').textContent=err.message;$('request-status').className='error'}
     finally{button.disabled=false}
   };
