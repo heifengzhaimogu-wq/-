@@ -17,7 +17,7 @@
   async function auth(action,password){
     const path=action==='signup'?'/auth/v1/signup':'/auth/v1/token?grant_type=password';
     const email=$('email').value.trim();
-    if(!email)throw Error('请填写管理员邮箱');
+    if(!email)throw Error('请填写授权邮箱');
     const redirect='https://heifengzhaimogu-wq.github.io/-/admin.html';
     const url=base+path+(action==='signup'?'?redirect_to='+encodeURIComponent(redirect):'');
     const result=await call(url,{method:'POST',body:JSON.stringify({email,password})});
@@ -29,7 +29,7 @@
   $('signup').onclick=async()=>{const password=$('password').value;if(password.length<8){$('status').textContent='请先填写至少 8 位密码';return}try{await auth('signup',password)}catch(err){$('status').textContent=err.message}};
   $('recover').onclick=async()=>{
     const email=$('email').value.trim();
-    if(!email){$('status').textContent='请先填写管理员邮箱';return}
+    if(!email){$('status').textContent='请先填写授权邮箱';return}
     try{
       await call(base+'/auth/v1/recover',{method:'POST',body:JSON.stringify({email})});
       $('reset-panel').hidden=false;
@@ -59,12 +59,13 @@
   async function refresh(){
     if(!token)return;
     try{
-      const [requests,feedback,catalog]=await Promise.all([
-        call(edge+'/admin/requests'),call(edge+'/admin/feedback'),call(edge+'/admin/catalog')
-      ]);
-      $('login-panel').hidden=true;$('admin-panels').hidden=false;$('status').textContent='已同步最新数据';
-      gifts=catalog.gifts||[];renderRequests(requests.requests||[]);renderFeedback(feedback.feedbacks||[]);renderCatalog();
-    }catch(err){$('status').textContent=err.message;if(/登录|授权|身份/.test(err.message)){$('admin-panels').hidden=true;$('login-panel').hidden=false}}
+      const [requests,catalog]=await Promise.all([call(edge+'/bp/requests'),call(edge+'/content')]);
+      const feedback=requests.role==='admin'?await call(edge+'/admin/feedback'):null;
+      $('login-panel').hidden=true;$('admin-panels').hidden=false;$('admin-only').hidden=requests.role!=='admin';
+      $('status').textContent=requests.role==='admin'?'已同步最新数据':'BP 需求表已同步';
+      gifts=catalog.gifts||[];renderRequests(requests.requests||[]);
+      if(feedback){renderFeedback(feedback.feedbacks||[]);renderCatalog()}
+    }catch(err){$('status').textContent=err.message;if(/登录|授权|身份|BP/.test(err.message)){$('admin-panels').hidden=true;$('login-panel').hidden=false}}
   }
   function renderRequests(items){
     requestRows=items;
