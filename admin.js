@@ -69,7 +69,8 @@
   function renderRequests(items){
     const root=$('requests');root.replaceChildren();
     if(!items.length){root.textContent='暂无需求登记';return}
-    for(const item of items){const row=make('div','');row.className='row';row.append(make('strong',(gifts.find(g=>g.id===item.gift_id)?.name||item.gift_id)+' · '+item.quantity+'份'),make('small',item.store+' · '+item.name+' · '+new Date(item.created_at).toLocaleString('zh-CN')+' · 邮件：'+item.email_status));root.append(row)}
+    const mailLabel={sent:'已发送',failed:'发送失败',not_configured:'未配置发件服务'};
+    for(const item of items){const row=make('div','');row.className='row';row.append(make('strong',(gifts.find(g=>g.id===item.gift_id)?.name||item.gift_id)+' · '+item.quantity+'份'),make('small',item.store+' · '+item.name+' · '+new Date(item.created_at).toLocaleString('zh-CN')+' · 邮件：'+(mailLabel[item.email_status]||item.email_status||'待发送')));root.append(row)}
   }
   function renderFeedback(items){
     const root=$('feedback');root.replaceChildren();
