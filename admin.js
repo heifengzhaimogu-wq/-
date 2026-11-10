@@ -18,8 +18,10 @@
     const path=action==='signup'?'/auth/v1/signup':'/auth/v1/token?grant_type=password';
     const email=$('email').value.trim();
     if(!email)throw Error('请填写管理员邮箱');
-    const result=await call(base+path,{method:'POST',body:JSON.stringify({email,password})});
-    if(action==='signup'){$('status').textContent='账号申请已提交。请到邮箱完成验证，然后回来登录。';return}
+    const redirect='https://heifengzhaimogu-wq.github.io/-/admin.html';
+    const url=base+path+(action==='signup'?'?redirect_to='+encodeURIComponent(redirect):'');
+    const result=await call(url,{method:'POST',body:JSON.stringify({email,password})});
+    if(action==='signup'){$('status').textContent='账号申请已提交。请到邮箱完成验证，然后返回本页登录。若验证后跳到 localhost，直接重新打开本页即可。';return}
     token=result.access_token||'';if(!token)throw Error('未取得登录凭证，请完成邮箱验证');
     sessionStorage.setItem('gz-admin-token',token);await refresh();
   }
