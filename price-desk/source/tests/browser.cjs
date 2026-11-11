@@ -1,0 +1,14 @@
+const {chromium}=require('/opt/codex/cua_node/lib/node_modules/playwright-core');
+const assert=require('node:assert/strict');
+(async()=>{const b=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+const desktop=await b.newContext({viewport:{width:1440,height:1000}});const p=await desktop.newPage();const errors=[];p.on('pageerror',e=>errors.push(e.message));
+await p.goto('http://127.0.0.1:4173/?demo=1');await p.waitForSelector('tbody tr');assert.equal(await p.locator('tbody tr').count(),15);
+await p.selectOption('#store','天河店');assert.equal(await p.locator('tbody tr').count(),8);await p.selectOption('#team','一组');assert.equal(await p.locator('tbody tr').count(),4);
+await p.click('[data-edit="QS10001"]');await p.locator('[name=quote]').fill('4800');await p.locator('[name=note]').fill('与店面核对后调整');await p.click('#review button[type=submit]');await p.waitForSelector('dialog:not([open])',{state:'attached'});assert.match(await p.locator('tbody tr').first().innerText(),/4,800/);
+await p.click('[data-confirm="QS10002"]');await p.click('#review button[type=submit]');await p.waitForSelector('dialog:not([open])',{state:'attached'});
+await p.click('#image');await p.waitForSelector('.export-preview',{timeout:30000});await p.waitForFunction(()=>document.querySelector('.export-preview').naturalWidth>0);await p.click('dialog .close');
+await p.screenshot({path:'/workspace/work/desktop.png',fullPage:true});
+await p.click('[data-view=imports]');await p.setInputFiles('#file',{name:'test.csv',mimeType:'text/csv',buffer:Buffer.from('\ufeff编号,店面,小组,楼盘,房间号,报价,底价\nNEW-01,测试店,一组,测试盘,001,5000,4500')});await p.waitForSelector('#commit');await p.click('#commit');await p.waitForSelector('dialog:not([open])',{state:'attached'});assert.match(await p.locator('#app tbody').innerText(),/test.csv/);
+await p.setInputFiles('#file',{name:'invalid.csv',mimeType:'text/csv',buffer:Buffer.from('\ufeff编号,店面,小组,楼盘,房间号,报价,底价\nBAD,测试店,一组,测试盘,001,100,900')});await p.waitForSelector('.errors');assert.match(await p.locator('.errors').innerText(),/底价不能高于报价/);
+const mobile=await b.newContext({viewport:{width:390,height:844},isMobile:true,deviceScaleFactor:1});const m=await mobile.newPage();await m.goto('http://127.0.0.1:4173/?demo=1');await m.waitForSelector('tbody');assert.equal(await m.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await m.screenshot({path:'/workspace/work/mobile.png',fullPage:true});
+const incognito=await b.newContext();const q=await incognito.newPage();await q.goto('http://127.0.0.1:4173/');await q.waitForSelector('.access');assert.equal(await q.locator('tbody tr').count(),0);assert.equal(errors.length,0);console.log('PASS desktop/mobile, scope filters, corrections, confirmations, PNG export, CSV import, validation and signed-out isolation');await b.close();})().catch(e=>{console.error(e);process.exit(1)});

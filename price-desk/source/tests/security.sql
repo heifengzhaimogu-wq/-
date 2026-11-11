@@ -1,0 +1,25 @@
+begin;
+insert into public.price_members(email,role,store,team) values ('qa-hrbp@example.test','hrbp',null,null),('qa-store@example.test','store','QA-A',null),('qa-team@example.test','team','QA-A','一组');
+select set_config('request.jwt.claims','{"sub":"11111111-1111-1111-1111-111111111111","email":"qa-hrbp@example.test","role":"authenticated"}',true);
+set local role authenticated;
+select public.price_import('[{"code":"QA-001","store":"QA-A","team":"一组","estate":"测试盘","room":"101","quote":5000,"floor":4500},{"code":"QA-002","store":"QA-A","team":"二组","estate":"测试盘","room":"102","quote":6000,"floor":5500},{"code":"QA-003","store":"QA-B","team":"一组","estate":"测试盘","room":"103","quote":7000,"floor":6500}]','test.csv');
+do $$ begin if (select count(*) from public.price_properties)<>3 then raise exception 'HRBP范围错误';end if;end $$;
+select set_config('request.jwt.claims','{"sub":"22222222-2222-2222-2222-222222222222","email":"qa-store@example.test","role":"authenticated"}',true);
+do $$ begin if (select count(*) from public.price_properties)<>2 then raise exception '店总范围错误';end if;end $$;
+select set_config('request.jwt.claims','{"sub":"33333333-3333-3333-3333-333333333333","email":"qa-team@example.test","role":"authenticated"}',true);
+do $$ begin if (select count(*) from public.price_properties)<>1 then raise exception '经理范围错误';end if;end $$;
+select public.price_review('QA-001',1,5100,4500,'核对修正',false);
+do $$ begin
+ if not exists(select 1 from public.price_properties where code='QA-001' and version=2 and status='corrected') then raise exception '修正失败';end if;
+ begin perform public.price_review('QA-003',1,7000,6500,'越权',true);raise exception '越权未阻止';exception when others then if SQLERRM='越权未阻止' then raise;end if;end;
+ begin perform public.price_review('QA-001',1,5100,4500,'过期',true);raise exception '过期未阻止';exception when others then if SQLERRM='过期未阻止' then raise;end if;end;
+ update public.price_members set role='hrbp' where email='qa-team@example.test';
+ if (select role from public.price_members where email='qa-team@example.test')<>'team' then raise exception '自我提权成功';end if;
+ if (select count(*) from public.price_history)<>2 then raise exception '历史记录隔离错误';end if;
+end $$;
+select set_config('request.jwt.claims','{"sub":"44444444-4444-4444-4444-444444444444","email":"unlisted@example.test","role":"authenticated"}',true);
+do $$ begin if (select count(*) from public.price_properties)<>0 then raise exception '未授权邮箱可读';end if;end $$;
+reset role;
+select 'PASS: HRBP=3, store=2, team=1, unlisted=0, cross-store write denied, stale revision denied, privilege escalation denied' as result;
+select has_table_privilege('anon','public.price_properties','select') as anonymous_read,has_function_privilege('anon','public.price_import(jsonb,text)','execute') as anonymous_import;
+rollback;
