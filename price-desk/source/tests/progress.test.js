@@ -1,0 +1,3 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {storeProgress} from '../src/organization.js';
+test('各店完成率独立计算，空店显示无分母',()=>{const result=storeProgress([{store:'A',status:'confirmed'},{store:'A',status:'pending'},{store:'A',status:'corrected'},{store:'B',status:'pending'}],[{store:'Empty',team:'1'}]);assert.equal(result.find(s=>s.store==='A').rate,67);assert.equal(result.find(s=>s.store==='B').rate,0);assert.equal(result.find(s=>s.store==='Empty').rate,null);});
+test('转移房源后完成率按新归属重算，不计入旧店',()=>{const result=storeProgress([{store:'B',status:'pending'}],[{store:'A',team:'1'},{store:'B',team:'1'}]);assert.equal(result.find(s=>s.store==='A').total,0);assert.equal(result.find(s=>s.store==='B').pending,1);});
